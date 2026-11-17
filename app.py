@@ -282,28 +282,13 @@ def hitung_audit(d):
 
 st.set_page_config(page_title="KAU NEKAT KAMI JERAT", page_icon="⚖️", layout="wide")
 
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&display=swap');
-.stApp { background: linear-gradient(180deg,#0a1530 0%,#1f5670 100%); color: white; }
-html, body, [class*="css"] { font-family: 'Jost', sans-serif; }
-.block-container { max-width: 1100px; padding-top: 2.2rem; padding-bottom: 5rem; }
-section[data-testid="stSidebar"] { background: #0a1530; }
-h1,h2,h3,p,label { color: white !important; }
-div[data-testid="stMetric"] { background: rgba(255,255,255,.09); padding: 18px; border-radius: 12px; }
-.stButton>button, .stFormSubmitButton>button { background:#f3c04f; color:#3a2a08; border:0; border-radius:7px; font-weight:600; min-height:44px; }
-.stButton>button:hover, .stFormSubmitButton>button:hover { background:#e8963a; color:#231800; }
-div[data-testid="stForm"] { background:rgba(0,0,0,.22); padding:22px; border-radius:12px; border:1px solid rgba(255,255,255,.15); }
-[data-testid="stDataFrame"], .stAlert { border-radius:10px; }
-</style>
-""", unsafe_allow_html=True)
 
 if "modul" not in st.session_state:
     st.session_state.modul = ""
 if "hasil" not in st.session_state:
     st.session_state.hasil = None
 
-st.markdown("<p style='letter-spacing:.25em;opacity:.75;text-align:center'>JARINGAN EVALUASI REGULASI DAN ATURAN TAMBANG</p>", unsafe_allow_html=True)
+st.caption("JARINGAN EVALUASI REGULASI DAN ATURAN TAMBANG")
 st.title("⚖️ KAU NEKAT KAMI JERAT")
 st.markdown("### JERAT — Evaluasi dampak dan kepatuhan kegiatan pertambangan")
 st.write("Pilih jenis pemeriksaan yang ingin dilakukan. Masukkan data sesuai parameter untuk memperoleh hasil evaluasi.")
