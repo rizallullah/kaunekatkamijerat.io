@@ -280,7 +280,7 @@ def hitung_audit(d):
     }
 
 
-st.set_page_config(page_title="KAU NEKAT KAMI JERAT", page_icon="⚖️", layout="wide")
+st.set_page_config(page_title="JERAT | Audit Lingkungan", page_icon="⚖️", layout="wide")
 
 
 if "modul" not in st.session_state:
@@ -290,7 +290,8 @@ if "hasil" not in st.session_state:
 
 st.caption("JARINGAN EVALUASI REGULASI DAN ATURAN TAMBANG")
 st.title("⚖️ KAU NEKAT KAMI JERAT")
-st.markdown("### JERAT — Evaluasi dampak dan kepatuhan kegiatan pertambangan")
+st.header("JERAT — Evaluasi Dampak dan Kepatuhan Kegiatan Pertambangan")
+st.text("Platform evaluasi lingkungan untuk membantu pemeriksaan kualitas air, kualitas udara, pencemaran tanah, serta aspek kepatuhan kegiatan pertambangan.")
 st.write("Pilih jenis pemeriksaan yang ingin dilakukan. Masukkan data sesuai parameter untuk memperoleh hasil evaluasi.")
 
 if not st.session_state.modul:
