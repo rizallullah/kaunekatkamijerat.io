@@ -1,109 +1,94 @@
 # KAU NEKAT KAMI JERAT (JERAT)
-# Streamlit implementation based on "New Fix Real 100% Final Project JERAT.py"
-# Run: streamlit run app.py
+# Aplikasi web berbasis Python + Streamlit.
+# Jalankan lokal: streamlit run app.py
 
 import streamlit as st
 
-st.set_page_config(page_title="JERAT | Audit Lingkungan", page_icon="⚖️", layout="wide")
-
-# -----------------------------------------------------------------------------
-# DATA ACUAN DARI PROGRAM PYTHON SUMBER
-# -----------------------------------------------------------------------------
 ZAT_AIR = {
-    "Nikel": {
+    "1": {
         "nama": ["Ni (Nikel)", "Co (Kobalt)", "Cr6+ (Kromium heksavalen)", "Pb (Timbal)"],
         "batas": [0.1, 0.5, 0.2, 0.1],
     },
-    "Batu Bara": {
+    "2": {
         "nama": ["Fe (Besi)", "Mn (Mangan)", "SO4 (Sulfat)", "Pb (Timbal)"],
         "batas": [0.3, 0.4, 250, 0.1],
     },
 }
 
-# Kode parameter, nama, dan empat batas konsentrasi sesuai program sumber.
-PARAMETER_ISPU = [
+PU = [
     ("PM10", "Partikulat PM10", 50, 150, 350, 420),
     ("PM2.5", "Partikulat PM2.5", 15.5, 55.4, 150.4, 250.4),
-    ("SO2", "Sulfur Dioksida (SO₂)", 52, 180, 400, 800),
+    ("SO2", "Sulfur Dioksida (SO2)", 52, 180, 400, 800),
     ("CO", "Karbon Monoksida (CO)", 4000, 8000, 15000, 30000),
-    ("O3", "Ozon Permukaan (O₃)", 120, 235, 400, 800),
-    ("NO2", "Nitrogen Dioksida (NO₂)", 80, 200, 1130, 2260),
+    ("O3", "Ozon Permukaan (O3)", 120, 235, 400, 800),
+    ("NO2", "Nitrogen Dioksida (NO2)", 80, 200, 1130, 2260),
     ("HC", "Hidrokarbon (HC)", 45, 100, 215, 432),
 ]
 
-PARAMETER_TANAH = {
-    "Nikel": [("Ni", "ni", 0.5, 2.1), ("Co", "co", 0.3, 2.4), ("Cr6+", "cr6", 0.075, 0.25)],
-    "Batu Bara": [("Fe", "fe", 100, 250), ("Mn", "mn", 5, 18), ("SO₄", "so4", 1.5, 3)],
-}
-
-
-def nilai(d, key, default=0.0):
-    """Ambil angka dari dictionary input Streamlit dan validasi nilainya."""
+def angka(data, nama, default=0.0):
     try:
-        result = float(d.get(key, default))
-    except (TypeError, ValueError):
-        raise ValueError(f"Nilai {key} harus berupa angka.")
-    return result
+        return float(data.get(nama, [str(default)])[0])
+    except (ValueError, TypeError, IndexError):
+        raise ValueError("Periksa kembali isian angka pada " + nama + ".")
 
+def pilihan(data, nama):
+    return data.get(nama, [""])[0].strip().lower()
 
-def ya_tidak(d, key):
-    value = str(d.get(key, "")).strip().lower()
-    if value not in ("ya", "tidak"):
-        raise ValueError("Lengkapi seluruh pertanyaan Ya/Tidak.")
-    return value
+def kategori_ispu(nilai):
+    if nilai <= 50:
+        return "Baik", "ok"
+    if nilai <= 100:
+        return "Sedang", "blue"
+    if nilai <= 200:
+        return "Tidak Sehat", "mid"
+    if nilai <= 300:
+        return "Sangat Tidak Sehat", "bad"
+    return "Berbahaya", "dark"
 
-
-def kategori_ispu(total):
-    if total <= 50:
-        return "Baik"
-    if total <= 100:
-        return "Sedang"
-    if total <= 200:
-        return "Tidak Sehat"
-    if total <= 300:
-        return "Sangat Tidak Sehat"
-    return "Berbahaya"
-
-
-# -----------------------------------------------------------------------------
-# 1. PEMERIKSAAN KUALITAS AIR — IKA
-# -----------------------------------------------------------------------------
 def hitung_air(d):
-    tambang = d["tambang"]
-    if tambang not in ZAT_AIR:
-        raise ValueError("Pilih jenis tambang Nikel atau Batu Bara.")
+    jenis = pilihan(d, "tambang")
+    if jenis not in ("1", "2"):
+        raise ValueError("Pilih jenis tambang terlebih dahulu.")
+    nama_tambang = "Nikel" if jenis == "1" else "Batu Bara"
 
-    keruh, warna, bau = (ya_tidak(d, k) for k in ("keruh", "warna", "bau"))
+    keruh, warna, bau = (pilihan(d, x) for x in ("keruh", "warna", "bau"))
+    if any(x not in ("ya", "tidak") for x in (keruh, warna, bau)):
+        raise ValueError("Lengkapi pengamatan awal dengan pilihan Ya atau Tidak.")
     poin = sum(x == "ya" for x in (keruh, warna, bau))
-    pengamatan = ["Air Layak Guna", "Air Cukup Layak Guna", "Air Kurang Layak Guna", "Air Tidak Layak Guna"][poin]
-    lanjut = ya_tidak(d, "lanjut")
+    hasil_awal = [
+        "Air Layak Guna", "Air Cukup Layak Guna",
+        "Air Kurang Layak Guna", "Air Tidak Layak Guna"
+    ][poin]
 
-    hasil = {"tambang": tambang, "pengamatan": pengamatan, "lanjut": lanjut}
+    lanjut = pilihan(d, "lanjut")
+    if lanjut not in ("ya", "tidak"):
+        raise ValueError("Pilih apakah ingin melakukan observasi lebih lanjut.")
+    hasil = {"jenis": nama_tambang, "awal": hasil_awal}
     if lanjut == "tidak":
-        hasil.update({"ika": None, "kategori": pengamatan, "awal_saja": True})
+        hasil.update({"sum": hasil_awal, "awal_saja": True})
         return hasil
 
-    jarak = nilai(d, "jarak")
-    volume = nilai(d, "volume")
-    ph = nilai(d, "ph")
-    ntu = nilai(d, "ntu")
-    tcu = nilai(d, "tcu")
+    jarak = angka(d, "jarak")
+    volume = angka(d, "volume")
+    ph = angka(d, "ph")
+    ntu = angka(d, "ntu")
+    tcu = angka(d, "tcu")
     if jarak < 0 or volume <= 0 or not 0 <= ph <= 14 or ntu < 0 or tcu <= 0:
         raise ValueError("Jarak harus ≥ 0, volume > 0, pH 0–14, NTU ≥ 0, dan TCU > 0.")
 
     ika = -20 if jarak <= 0.5 else (-10 if jarak <= 1 else 10)
     if 6.5 < ph < 8.5:
-        status_ph, skor_ph = "pH Ideal, Layak Guna", 20
-    elif 5.5 < ph <= 6.5 or 8.5 <= ph < 9.5:
-        status_ph, skor_ph = "Sedikit Asam/Basa, Masih Layak", 20
-    elif 3.5 < ph <= 5.5 or 9.5 <= ph < 11.5:
-        status_ph, skor_ph = "Asam/Basa, Kurang Layak", 10
-    elif 2 < ph <= 3.5 or 11.5 <= ph < 13:
-        status_ph, skor_ph = "Asam/Basa Kuat, Tidak Layak", -10
+        status_ph, skor = "pH Ideal, Layak Guna", 20
+    elif (5.5 < ph <= 6.5) or (8.5 <= ph < 9.5):
+        status_ph, skor = "Sedikit Asam/Basa, Masih Layak", 20
+    elif (3.5 < ph <= 5.5) or (9.5 <= ph < 11.5):
+        status_ph, skor = "Asam/Basa, Kurang Layak", 10
+    elif (2 < ph <= 3.5) or (11.5 <= ph < 13):
+        status_ph, skor = "Asam/Basa Kuat, Tidak Layak", -10
     else:
-        status_ph, skor_ph = "Sangat Asam/Basa, Berbahaya", -20
-    ika += skor_ph
-    ph_berbahaya = ph <= 3.5 or ph >= 11.5
+        status_ph, skor = "Sangat Asam/Basa, Berbahaya", -20
+    ika += skor
+    ph_bahaya = ph <= 3.5 or ph >= 11.5
 
     if ntu <= 1:
         status_ntu, skor_ntu = "Air Sangat Jernih", 20
@@ -115,7 +100,6 @@ def hitung_air(d):
         status_ntu, skor_ntu = "Tidak layak guna", 0
     ika += skor_ntu
 
-    # Skor TCU mengikuti algoritma aktual pada file sumber (+10, +10, 0, 0).
     if tcu <= 5:
         status_tcu, skor_tcu = "Air Jernih/Tak Berwarna", 10
     elif tcu <= 15:
@@ -126,25 +110,28 @@ def hitung_air(d):
         status_tcu, skor_tcu = "Tidak Layak Guna", 0
     ika += skor_tcu
 
-    daftar_zat, total_massa, ada_melebihi = [], 0.0, False
-    acuan = ZAT_AIR[tambang]
-    for i, nama in enumerate(acuan["nama"]):
-        massa = nilai(d, f"massa{i}")
+    zat = ZAT_AIR[jenis]
+    daftar_zat = []
+    total_massa = 0
+    ada_melebihi = False
+    for i, nama in enumerate(zat["nama"]):
+        massa = angka(d, "massa" + str(i))
         if massa < 0:
-            raise ValueError("Massa zat terlarut tidak boleh negatif.")
+            raise ValueError("Massa zat tidak boleh negatif.")
         total_massa += massa
-        konsentrasi = massa / volume
-        layak = konsentrasi <= acuan["batas"][i]
-        daftar_zat.append({"Zat": nama, "Konsentrasi (mg/L)": round(konsentrasi, 4), "Batas (mg/L)": acuan["batas"][i], "Status": "Layak Guna" if layak else "Melebihi Batas"})
+        kons = massa / volume
+        layak = kons <= zat["batas"][i]
+        daftar_zat.append({
+            "nama": nama, "kons": kons, "batas": zat["batas"][i], "layak": layak
+        })
         if layak:
             ika += 10
         else:
             ada_melebihi = True
 
-    skor_sebelum_nol = ika
+    skor_awal = ika
     if ada_melebihi:
         ika = 0
-
     tds = total_massa / volume
     if tds < 100:
         status_tds = "Sangat Rendah"
@@ -159,353 +146,264 @@ def hitung_air(d):
     else:
         status_tds = "Sangat Buruk"
 
-    if ph_berbahaya:
+    if ph_bahaya:
         kategori = "AIR TIDAK LAYAK GUNA (pH berbahaya)"
+        kelas = "bad"
     elif ntu > 25:
-        kategori = "AIR TIDAK LAYAK GUNA (NTU > 25)"
+        kategori, kelas = "AIR TIDAK LAYAK GUNA (NTU > 25)", "bad"
     elif tcu > 50:
-        kategori = "AIR TIDAK LAYAK GUNA (TCU > 50)"
+        kategori, kelas = "AIR TIDAK LAYAK GUNA (TCU > 50)", "bad"
     elif ada_melebihi:
-        kategori = "AIR TIDAK LAYAK GUNA (ada zat melebihi batas)"
+        kategori, kelas = "AIR TIDAK LAYAK GUNA (ada zat melebihi batas)", "bad"
     elif ika >= 100:
-        kategori = "AIR LAYAK DIGUNAKAN"
+        kategori, kelas = "AIR LAYAK DIGUNAKAN", "ok"
     elif ika >= 80:
-        kategori = "AIR CUKUP LAYAK DIGUNAKAN"
+        kategori, kelas = "AIR CUKUP LAYAK DIGUNAKAN", "ok"
     elif ika >= 60:
-        kategori = "AIR KURANG LAYAK GUNA"
+        kategori, kelas = "AIR KURANG LAYAK GUNA", "mid"
     else:
-        kategori = "AIR TIDAK LAYAK GUNA"
+        kategori, kelas = "AIR TIDAK LAYAK GUNA", "bad"
 
     hasil.update({
-        "awal_saja": False, "jarak": jarak, "volume": volume, "ph": ph, "ntu": ntu, "tcu": tcu,
-        "status_ph": status_ph, "status_ntu": status_ntu, "status_tcu": status_tcu,
-        "zat": daftar_zat, "tds": tds, "status_tds": status_tds, "ika": ika,
-        "skor_sebelum_nol": skor_sebelum_nol, "ada_melebihi": ada_melebihi,
-        "ph_berbahaya": ph_berbahaya, "kategori": kategori,
+        "sum": "IKA " + str(ika) + " / 100 · " + kategori,
+        "awal_saja": False, "volume": volume, "jarak": jarak,
+        "ph": ph, "ntu": ntu, "tcu": tcu, "status_ph": status_ph,
+        "status_ntu": status_ntu, "status_tcu": status_tcu,
+        "zat": daftar_zat, "tds": tds, "status_tds": status_tds,
+        "ika": ika, "kategori": kategori, "kelas": kelas,
+        "skor_awal": skor_awal, "ada_melebihi": ada_melebihi,
     })
     return hasil
 
-
-# -----------------------------------------------------------------------------
-# 2. AUDIT PERUSAHAAN DAN PERHITUNGAN AKUMULASI SANKSI
-# -----------------------------------------------------------------------------
-def hitung_audit(d):
-    izin, limbah, suap = (ya_tidak(d, k) for k in ("izin", "limbah", "suap"))
-    hektare = nilai(d, "hektare")
-    korban = nilai(d, "korban")
-    if hektare < 0 or korban < 0 or not korban.is_integer():
-        raise ValueError("Luas kawasan tidak boleh negatif dan jumlah korban harus bilangan bulat ≥ 0.")
-    hektare, korban = float(hektare), int(korban)
-
-    dmin = dmax = pmin = pmaks = 0.0
-    if izin == "tidak":
-        dmin += 5; dmax += 100; pmin += 2; pmaks += 5
-    if hektare > 1:
-        dmin += 1.5; dmax += 5; pmin += 3; pmaks += 10
-    # Koreksi salah rujuk variabel di kode sumber: kondisi kecelakaan memakai jumlah korban.
-    if korban >= 1:
-        dmin += 2 * korban; dmax += 9 * korban
-    if limbah == "ya":
-        dmin += 1; dmax += 5; pmin += 1; pmaks += 5
-    if suap == "ya":
-        dmin += 1; dmax += 5; pmin += 1; pmaks += 5
-    return {"izin": izin, "hektare": hektare, "korban": korban, "limbah": limbah, "suap": suap,
-            "dmin": dmin, "dmax": dmax, "pmin": pmin, "pmaks": pmaks}
-
-
-def tentukan_pasal(audit, kategori_pencemaran):
-    pasal = []
-    if audit["izin"] == "tidak":
-        pasal.append(("Izin usaha pertambangan", "Pasal 158 dan 161A UU Minerba — kegiatan pertambangan tanpa izin"))
-    if audit["hektare"] > 1:
-        pasal.append(("Pembukaan kawasan hutan", "Pasal 89 ayat (1) huruf a jo. Pasal 17 ayat (1) huruf b UU No. 18 Tahun 2013"))
-    if audit["korban"] >= 1:
-        pasal.append(("Kecelakaan kerja", "UU No. 4 Tahun 2009 jo. UU No. 3 Tahun 2020 tentang Pertambangan Mineral dan Batubara — perlu telaah ketentuan spesifik berdasarkan fakta kejadian"))
-    if kategori_pencemaran == "Pelanggaran Berat":
-        pasal.append(("Pencemaran lingkungan", "Pasal 98 ayat (1) dan/atau Pasal 99 ayat (1) UU No. 32 Tahun 2009 — perlu pembuktian unsur delik"))
-    if audit["limbah"] == "ya":
-        pasal.append(("Pengelolaan limbah", "Pasal 102–103 UU No. 32 Tahun 2009 sebagaimana diubah — perlu verifikasi ketentuan yang berlaku dan jenis pelanggaran"))
-    if audit["suap"] == "ya":
-        pasal.append(("Praktik suap/laporan fiktif", "Pasal 5 ayat (1) UU Tipikor — penerapan pasal bergantung pada unsur dan peran pihak terkait"))
-    return pasal
-
-
-# -----------------------------------------------------------------------------
-# 3. PEMERIKSAAN KUALITAS UDARA — SKOR ISPU SIMULASI SESUAI PROGRAM SUMBER
-# -----------------------------------------------------------------------------
 def hitung_udara(d):
-    rincian, total = [], 0
-    for kode, nama, b1, b2, b3, b4 in PARAMETER_ISPU:
-        konsentrasi = nilai(d, "u_" + kode)
-        if konsentrasi < 0:
-            raise ValueError(f"Konsentrasi {kode} tidak boleh negatif.")
-        if konsentrasi <= b1:
-            skor, rentang = 0, f"≤ {b1}"
-        elif konsentrasi <= b2:
-            skor, rentang = 15, f"> {b1} – {b2}"
-        elif konsentrasi <= b3:
-            skor, rentang = 30, f"> {b2} – {b3}"
-        elif konsentrasi <= b4:
-            skor, rentang = 50, f"> {b3} – {b4}"
+    hasil_parameter = []
+    for kode, nama, b1, b2, b3, b4 in PU:
+        nilai = angka(d, "u_" + kode)
+        if nilai < 0:
+            raise ValueError("Konsentrasi " + kode + " tidak boleh negatif.")
+        if nilai <= b1:
+            skor = 0
+        elif nilai <= b2:
+            skor = 15
+        elif nilai <= b3:
+            skor = 30
+        elif nilai <= b4:
+            skor = 50
         else:
-            skor, rentang = 100, f"> {b4}"
-        total += skor
-        rincian.append({"Parameter": nama, "Konsentrasi (µg/m³)": konsentrasi, "Rentang skor": rentang, "Skor": skor})
-    return {"total": total, "kategori": kategori_ispu(total), "rincian": rincian,
-            "kritis": max(rincian, key=lambda x: x["Skor"])}
+            skor = 100
+        hasil_parameter.append({"kode": kode, "nama": nama, "nilai": nilai, "skor": skor})
+    # Mengikuti struktur penilaian program: jumlah skor parameter, bukan rata-rata.
+    total = sum(x["skor"] for x in hasil_parameter)
+    kategori, kelas = kategori_ispu(total)
+    kritis = max(hasil_parameter, key=lambda x: x["skor"])
+    return {
+        "sum": "ISPU " + str(total) + " · " + kategori,
+        "total": total, "kategori": kategori, "kelas": kelas,
+        "kritis": kritis, "parameter": hasil_parameter,
+    }
 
-
-# -----------------------------------------------------------------------------
-# 4. PEMERIKSAAN KUALITAS TANAH — INDEKS NEMEROW (Pn) SESUAI PROGRAM SUMBER
-# -----------------------------------------------------------------------------
 def hitung_tanah(d):
-    pht, ec, corg, ktk, pb = (nilai(d, k) for k in ("pht", "ec", "corg", "ktk", "pb"))
-    if not 0 <= pht <= 14 or min(ec, corg, ktk, pb) < 0 or corg > 100:
-        raise ValueError("pH tanah harus 0–14, C-Organik 0–100%, dan parameter lain tidak boleh negatif.")
     pn = 0.0
-    pn += 0.7 if pht <= 4.5 or pht > 9.5 else (0.2 if pht <= 5.5 or pht > 8.5 else 0)
+    pht = angka(d, "pht")
+    ec = angka(d, "ec")
+    corg = angka(d, "corg")
+    ktk = angka(d, "ktk")
+    pb = angka(d, "pb")
+    if not 0 <= pht <= 14 or not 0 <= corg <= 100 or min(ec, ktk, pb) < 0:
+        raise ValueError("pH tanah harus 0–14, C-Organik 0–100%, dan parameter lainnya tidak boleh negatif.")
+    pn += 0.7 if pht <= 4.5 or pht > 9.5 else (0.2 if pht <= 5.5 or pht <= 9.5 and pht > 8.5 else 0)
     pn += 0 if ec <= 2 else (0.2 if ec <= 4 else 0.7)
     pn += 0.7 if corg <= 2 else (0.2 if corg <= 5 else 0)
     pn += 0.7 if ktk <= 5 else (0.2 if ktk <= 20 else 0)
     pn += 0 if pb <= 1.5 else (0.2 if pb <= 6 else 0.7)
 
-    rincian = [
-        {"Parameter": "pH tanah", "Nilai": pht, "Skor": 0.7 if pht <= 4.5 or pht > 9.5 else (0.2 if pht <= 5.5 or pht > 8.5 else 0)},
-        {"Parameter": "Daya Hantar Listrik (dS/m)", "Nilai": ec, "Skor": 0 if ec <= 2 else (0.2 if ec <= 4 else 0.7)},
-        {"Parameter": "C-Organik (%)", "Nilai": corg, "Skor": 0.7 if corg <= 2 else (0.2 if corg <= 5 else 0)},
-        {"Parameter": "Kapasitas Tukar Kation (cmol/kg)", "Nilai": ktk, "Skor": 0.7 if ktk <= 5 else (0.2 if ktk <= 20 else 0)},
-        {"Parameter": "Pb (g/kg)", "Nilai": pb, "Skor": 0 if pb <= 1.5 else (0.2 if pb <= 6 else 0.7)},
-    ]
-    for nama, key, batas1, batas2 in PARAMETER_TANAH[d["tambang"]]:
-        val = nilai(d, key)
-        if val < 0:
-            raise ValueError(f"Nilai {nama} tidak boleh negatif.")
-        skor = 0 if val <= batas1 else (0.2 if val <= batas2 else 0.7)
-        pn += skor
-        rincian.append({"Parameter": f"{nama} (g/kg)", "Nilai": val, "Skor": skor})
-
-    if pn <= 0.7:
-        kategori = "Bersih"
-    elif pn <= 1:
-        kategori = "Cukup Bersih"
-    elif pn <= 2:
-        kategori = "Tercemar Ringan"
-    elif pn <= 3:
-        kategori = "Tercemar Sedang"
+    jenis = pilihan(d, "tambang")
+    tambahan = []
+    if jenis == "2":
+        parameter = [
+            ("Fe", "fe", 100, 250), ("Mn", "mn", 5, 18), ("SO4", "so4", 1.5, 3)
+        ]
+    elif jenis == "1":
+        parameter = [
+            ("Ni", "ni", 0.5, 2.1), ("Co", "co", 0.3, 2.4), ("Cr6+", "cr6", 0.075, 0.25)
+        ]
     else:
-        kategori = "Tercemar Berat"
-    return {"pn": pn, "kategori": kategori, "rincian": rincian}
+        raise ValueError("Pilih jenis tambang untuk menentukan parameter logam tanah.")
+    for nama, kunci, batas1, batas2 in parameter:
+        nilai = angka(d, kunci)
+        if nilai < 0:
+            raise ValueError("Nilai " + nama + " tidak boleh negatif.")
+        skor = 0 if nilai <= batas1 else (0.2 if nilai <= batas2 else 0.7)
+        pn += skor
+        tambahan.append((nama, nilai, skor))
+    if pn <= 0.7:
+        kategori, kelas = "Bersih", "ok"
+    elif pn <= 1:
+        kategori, kelas = "Cukup Bersih", "blue"
+    elif pn <= 2:
+        kategori, kelas = "Tercemar Ringan", "mid"
+    elif pn <= 3:
+        kategori, kelas = "Tercemar Sedang", "bad"
+    else:
+        kategori, kelas = "Tercemar Berat", "dark"
+    return {
+        "sum": "Pn " + format(pn, ".2f") + " · " + kategori,
+        "pn": pn, "kategori": kategori, "kelas": kelas,
+        "pht": pht, "ec": ec, "corg": corg, "ktk": ktk, "pb": pb,
+        "tambahan": tambahan,
+    }
+
+def hitung_audit(d):
+    izin = pilihan(d, "izin")
+    limbah = pilihan(d, "limbah")
+    suap = pilihan(d, "suap")
+    if any(x not in ("ya", "tidak") for x in (izin, limbah, suap)):
+        raise ValueError("Jawab seluruh pertanyaan audit dengan Ya atau Tidak.")
+    hektare = angka(d, "hektare")
+    korban = angka(d, "korban")
+    if hektare < 0 or korban < 0:
+        raise ValueError("Luas hutan dan jumlah korban tidak boleh negatif.")
+    dmin = dmax = pmin = pmaks = 0
+    if izin == "tidak":
+        dmin += 5; dmax += 100; pmin += 2; pmaks += 5
+    if hektare > 1:
+        dmin += 1.5; dmax += 5; pmin += 3; pmaks += 10
+    if korban > 0:
+        dmin += 2 * korban; dmax += 9 * korban
+    if limbah == "ya":
+        dmin += 1; dmax += 5; pmin += 1; pmaks += 5
+    if suap == "ya":
+        dmin += 1; dmax += 5; pmin += 1; pmaks += 5
+    return {
+        "sum": "Audit selesai", "dmin": dmin, "dmax": dmax,
+        "pmin": pmin, "pmaks": pmaks,
+    }
 
 
-# -----------------------------------------------------------------------------
-# TAMPILAN STREAMLIT
-# -----------------------------------------------------------------------------
-st.title("⚖️ KAU NEKAT KAMI JERAT")
+st.set_page_config(page_title="JERAT | Audit Lingkungan", page_icon="⚖️", layout="wide")
+
+
+if "modul" not in st.session_state:
+    st.session_state.modul = ""
+if "hasil" not in st.session_state:
+    st.session_state.hasil = None
+
 st.caption("JARINGAN EVALUASI REGULASI DAN ATURAN TAMBANG")
-st.subheader("JERAT — Evaluasi Dampak dan Kepatuhan Kegiatan Pertambangan")
-st.write("Platform simulasi pemeriksaan kualitas air, kualitas udara, pencemaran tanah, serta kepatuhan perusahaan pertambangan.")
-st.info("Isi data berdasarkan hasil pengamatan atau pengujian. Hasil aplikasi merupakan simulasi berbasis algoritma pada program sumber, bukan pengganti pengujian laboratorium atau penetapan hukum oleh pihak berwenang.")
+st.title("⚖️ KAU NEKAT KAMI JERAT")
+st.header("JERAT — Evaluasi Dampak dan Kepatuhan Kegiatan Pertambangan")
+st.text("Platform evaluasi lingkungan untuk membantu pemeriksaan kualitas air, kualitas udara, pencemaran tanah, serta aspek kepatuhan kegiatan pertambangan.")
+st.write("Pilih jenis pemeriksaan yang ingin dilakukan. Masukkan data sesuai parameter untuk memperoleh hasil evaluasi.")
 
-menu = st.radio("Pilih jenis pemeriksaan", ["Pemeriksaan Terpadu", "Kualitas Air", "Kualitas Udara", "Kualitas Tanah", "Audit Perusahaan"], horizontal=True)
+if not st.session_state.modul:
+    st.divider()
+    cols = st.columns(4)
+    menu = [
+        ("air", "💧 Indeks Air", "IKA — Indeks Kelayakan Air tambang"),
+        ("udara", "🌫️ Indeks Udara", "ISPU — 7 parameter pencemar udara"),
+        ("tanah", "🌱 Indeks Tanah", "Indeks Pencemaran Nemerow (Pn)"),
+        ("audit", "⚖️ Audit Perusahaan", "Izin, kawasan hutan, kecelakaan, limbah, dan suap"),
+    ]
+    for col, (kode, judul, deskripsi) in zip(cols, menu):
+        with col:
+            st.markdown(f"### {judul}")
+            st.write(deskripsi)
+            if st.button("Mulai pemeriksaan", key=f"mulai_{kode}", use_container_width=True):
+                st.session_state.modul = kode
+                st.session_state.hasil = None
+                st.rerun()
+else:
+    modul = st.session_state.modul
+    judul = {"air":"Indeks Kelayakan Air", "udara":"Indeks Pencemar Udara", "tanah":"Indeks Pencemaran Tanah", "audit":"Audit Perusahaan"}[modul]
+    st.divider()
+    st.subheader("Formulir Pemeriksaan — " + judul)
+    d = {}
+    def simpan(k, v):
+        d[k] = [str(v)]
 
+    with st.form("form_pemeriksaan"):
+        if modul == "air":
+            st.markdown("#### Pengamatan awal")
+            simpan("tambang", st.selectbox("Jenis tambang", [("1","Nikel"),("2","Batu Bara")], format_func=lambda x:x[1])[0])
+            for k, label in [("keruh","Apakah air terlihat keruh?"),("warna","Apakah air berwarna?"),("bau","Apakah air berbau?")]:
+                simpan(k, st.radio(label, ["tidak","ya"], format_func=lambda x:"Ya" if x=="ya" else "Tidak", horizontal=True))
+            simpan("lanjut", st.radio("Lakukan observasi lebih lanjut?", ["ya","tidak"], format_func=lambda x:"Ya" if x=="ya" else "Tidak", horizontal=True))
+            st.markdown("#### Parameter lanjutan air")
+            c1,c2,c3 = st.columns(3)
+            with c1: simpan("jarak", st.number_input("Jarak sumber air dari area tambang (km)", min_value=0.0, value=2.0))
+            with c2: simpan("volume", st.number_input("Jumlah air yang diobservasi (liter)", min_value=0.000001, value=10.0))
+            with c3: simpan("ph", st.number_input("Nilai pH air", min_value=0.0, max_value=14.0, value=7.0))
+            c1,c2,c3 = st.columns(3)
+            with c1: simpan("ntu", st.number_input("Kekeruhan air (NTU)", min_value=0.0, value=1.0))
+            with c2: simpan("tcu", st.number_input("Warna air (TCU)", min_value=0.000001, value=5.0))
+            with c3: st.caption("Massa zat terlarut diisi dalam mg.")
+            st.markdown("#### Massa zat terlarut")
+            c1,c2,c3,c4 = st.columns(4)
+            for i,col in enumerate([c1,c2,c3,c4]):
+                with col: simpan("massa"+str(i), st.number_input(f"Massa zat ke-{i+1} (mg)", min_value=0.0, value=0.0, key=f"massa_{i}"))
+        elif modul == "udara":
+            st.markdown("Masukkan konsentrasi dalam µg/m³.")
+            cols = st.columns(2)
+            for i,(kode,nama,*_) in enumerate(PU):
+                with cols[i%2]: simpan("u_"+kode, st.number_input(nama+" (µg/m³)", min_value=0.0, value=0.0, key="udara_"+kode))
+        elif modul == "tanah":
+            pilihan_tambang = st.selectbox("Jenis tambang", [("1","Nikel"),("2","Batu Bara")], format_func=lambda x:x[1])
+            simpan("tambang", pilihan_tambang[0])
+            cols=st.columns(2)
+            dasar=[("pht","pH tanah",7.0),("ec","Daya Hantar Listrik (dS/m)",1.0),("corg","C-Organik (%)",3.0),("ktk","Kapasitas Tukar Kation (cmol/Kg)",10.0),("pb","Logam berat Pb (g/kg)",1.0)]
+            for i,(k,label,val) in enumerate(dasar):
+                with cols[i%2]: simpan(k,st.number_input(label,min_value=0.0,max_value=14.0 if k=="pht" else None,value=val,key="tanah_"+k))
+            st.markdown("#### Parameter logam tambahan")
+            cols=st.columns(3)
+            tambahan=[("fe","Fe (Batu Bara)",50.0),("mn","Mn (Batu Bara)",2.0),("so4","SO4 (Batu Bara)",1.0),("ni","Ni (Nikel)",0.2),("co","Co (Nikel)",0.2),("cr6","Cr6+ (Nikel)",0.05)]
+            for i,(k,label,val) in enumerate(tambahan):
+                with cols[i%3]: simpan(k,st.number_input(label+" (g/kg)",min_value=0.0,value=val,key="logam_"+k))
+        else:
+            st.markdown("Jawab pertanyaan audit berikut.")
+            for k,label in [("izin","Apakah perusahaan memiliki izin usaha pertambangan?"),("limbah","Adakah limbah yang dikelola tanpa izin?"),("suap","Adakah praktik suap atau laporan keuangan fiktif?")]:
+                simpan(k,st.radio(label,["tidak","ya"],format_func=lambda x:"Ya" if x=="ya" else "Tidak",horizontal=True))
+            c1,c2=st.columns(2)
+            with c1: simpan("hektare",st.number_input("Luas kawasan hutan (hektare)",min_value=0.0,value=0.0))
+            with c2: simpan("korban",st.number_input("Jumlah korban kecelakaan kerja",min_value=0.0,value=0.0,step=1.0))
+        submitted = st.form_submit_button("Hitung hasil evaluasi", use_container_width=True)
 
-def form_air(prefix="air"):
-    data = {}
-    st.markdown("#### Identitas dan pengamatan awal")
-    data["tambang"] = st.selectbox("Jenis tambang", ["Nikel", "Batu Bara"], key=prefix+"_tambang")
-    c1, c2, c3 = st.columns(3)
-    with c1: data["keruh"] = st.radio("Air terlihat keruh?", ["tidak", "ya"], format_func=lambda x: x.title(), key=prefix+"_keruh")
-    with c2: data["warna"] = st.radio("Air terlihat berwarna?", ["tidak", "ya"], format_func=lambda x: x.title(), key=prefix+"_warna")
-    with c3: data["bau"] = st.radio("Air berbau?", ["tidak", "ya"], format_func=lambda x: x.title(), key=prefix+"_bau")
-    data["lanjut"] = st.radio("Lakukan observasi parameter lanjutan?", ["ya", "tidak"], format_func=lambda x: "Ya" if x == "ya" else "Tidak", horizontal=True, key=prefix+"_lanjut")
-    if data["lanjut"] == "ya":
-        st.markdown("#### Parameter fisik dan kimia air")
-        c1, c2, c3 = st.columns(3)
-        with c1: data["jarak"] = st.number_input("Jarak sumber air dari area tambang (km)", min_value=0.0, value=2.0, key=prefix+"_jarak")
-        with c2: data["volume"] = st.number_input("Jumlah air observasi (liter)", min_value=0.000001, value=10.0, key=prefix+"_volume")
-        with c3: data["ph"] = st.number_input("pH air", min_value=0.0, max_value=14.0, value=7.0, key=prefix+"_ph")
-        c1, c2 = st.columns(2)
-        with c1: data["ntu"] = st.number_input("Kekeruhan (NTU)", min_value=0.0, value=1.0, key=prefix+"_ntu")
-        with c2: data["tcu"] = st.number_input("Warna (TCU)", min_value=0.000001, value=5.0, key=prefix+"_tcu")
-        st.markdown("#### Massa zat terlarut")
-        st.caption("Masukkan massa setiap zat dalam mg. Konsentrasi dihitung otomatis dalam mg/L = massa ÷ volume air.")
-        cols = st.columns(4)
-        for i, col in enumerate(cols):
-            with col:
-                nama = ZAT_AIR[data["tambang"]]["nama"][i]
-                data[f"massa{i}"] = st.number_input(f"{nama} (mg)", min_value=0.0, value=0.0, key=f"{prefix}_massa{i}")
-    return data
-
-
-def form_udara(prefix="udara"):
-    data = {}
-    st.caption("Satuan konsentrasi: µg/m³. Skor total mengikuti penjumlahan skor parameter pada algoritma sumber.")
-    cols = st.columns(2)
-    for i, (kode, nama, *_batas) in enumerate(PARAMETER_ISPU):
-        with cols[i % 2]:
-            data["u_" + kode] = st.number_input(f"{nama} (µg/m³)", min_value=0.0, value=0.0, key=f"{prefix}_{kode}")
-    return data
-
-
-def form_tanah(tambang, prefix="tanah"):
-    data = {"tambang": tambang}
-    st.markdown("#### Parameter dasar tanah")
-    cols = st.columns(2)
-    dasar = [("pht", "pH tanah", 7.0, 14.0), ("ec", "Daya Hantar Listrik (dS/m)", 1.0, None),
-             ("corg", "C-Organik (%)", 3.0, 100.0), ("ktk", "Kapasitas Tukar Kation (cmol/kg)", 10.0, None),
-             ("pb", "Logam berat Pb (g/kg)", 1.0, None)]
-    for i, (key, label, default, maximum) in enumerate(dasar):
-        with cols[i % 2]:
-            kwargs = {"min_value": 0.0, "value": default, "key": f"{prefix}_{key}"}
-            if maximum is not None: kwargs["max_value"] = maximum
-            data[key] = st.number_input(label, **kwargs)
-    st.markdown("#### Logam tambahan berdasarkan jenis tambang")
-    cols = st.columns(3)
-    defaults = {"fe": 50.0, "mn": 2.0, "so4": 1.0, "ni": 0.2, "co": 0.2, "cr6": 0.05}
-    for i, (nama, key, _b1, _b2) in enumerate(PARAMETER_TANAH[tambang]):
-        with cols[i % 3]:
-            data[key] = st.number_input(f"{nama} (g/kg)", min_value=0.0, value=defaults[key], key=f"{prefix}_{key}")
-    return data
-
-
-def form_audit(prefix="audit"):
-    data = {}
-    st.markdown("#### Kepatuhan dan pelanggaran perusahaan")
-    c1, c2 = st.columns(2)
-    with c1:
-        data["izin"] = st.radio("Apakah perusahaan memiliki izin usaha pertambangan?", ["ya", "tidak"], format_func=lambda x: x.title(), key=prefix+"_izin")
-        data["hektare"] = st.number_input("Luas kawasan hutan yang dibuka (hektare)", min_value=0.0, value=0.0, key=prefix+"_hektare")
-        data["korban"] = st.number_input("Jumlah korban kecelakaan kerja", min_value=0, value=0, step=1, key=prefix+"_korban")
-    with c2:
-        data["limbah"] = st.radio("Adakah limbah yang dikelola tanpa izin?", ["tidak", "ya"], format_func=lambda x: x.title(), key=prefix+"_limbah")
-        data["suap"] = st.radio("Adakah praktik suap/laporan keuangan fiktif?", ["tidak", "ya"], format_func=lambda x: x.title(), key=prefix+"_suap")
-    return data
-
-
-def tampilkan_air(r):
-    st.markdown("### Hasil pemeriksaan kualitas air")
-    if r["awal_saja"]:
-        st.warning(f"{r['pengamatan']}. Pemeriksaan hanya berdasarkan pengamatan visual; belum termasuk uji laboratorium.")
-        return
-    st.metric("Indeks Kelayakan Air (IKA)", f"{r['ika']} / 100")
-    st.write("**Kesimpulan:**", r["kategori"])
-    st.write(f"Pengamatan awal: {r['pengamatan']} · Jenis tambang: {r['tambang']}")
-    st.dataframe([
-        {"Parameter": "pH", "Nilai": r["ph"], "Status": r["status_ph"]},
-        {"Parameter": "Kekeruhan (NTU)", "Nilai": r["ntu"], "Status": r["status_ntu"]},
-        {"Parameter": "Warna (TCU)", "Nilai": r["tcu"], "Status": r["status_tcu"]},
-    ] + r["zat"] + [{"Parameter": "TDS total (mg/L)", "Nilai": round(r["tds"], 2), "Status": r["status_tds"]}], use_container_width=True, hide_index=True)
-
-
-def tampilkan_udara(r):
-    st.markdown("### Hasil pemeriksaan kualitas udara")
-    st.metric("Skor ISPU simulasi", r["total"])
-    st.write("**Kategori:**", r["kategori"])
-    st.dataframe(r["rincian"], use_container_width=True, hide_index=True)
-
-
-def tampilkan_tanah(r):
-    st.markdown("### Hasil pemeriksaan kualitas tanah")
-    st.metric("Indeks Pencemaran Nemerow (Pn)", f"{r['pn']:.2f}")
-    st.write("**Kategori:**", r["kategori"])
-    st.dataframe(r["rincian"], use_container_width=True, hide_index=True)
-
-
-def tampilkan_audit(r):
-    st.markdown("### Hasil audit perusahaan")
-    c1, c2 = st.columns(2)
-    c1.metric("Denda minimum", f"Rp {r['dmin']:,.2f} miliar")
-    c2.metric("Denda maksimum", f"Rp {r['dmax']:,.2f} miliar")
-    c1, c2 = st.columns(2)
-    c1.metric("Pidana minimum", f"{r['pmin']:g} tahun")
-    c2.metric("Pidana maksimum", f"{r['pmaks']:g} tahun")
-    st.caption("Akumulasi ini mengikuti angka dan aturan hitung pada program sumber; bukan penetapan sanksi resmi. Penerapan pasal dan sanksi harus diverifikasi berdasarkan peraturan terbaru serta fakta hukum.")
-
-
-if menu == "Pemeriksaan Terpadu":
-    st.write("Lakukan seluruh pemeriksaan dalam satu formulir. Hasil air, udara, tanah, audit, dan identifikasi pasal akan dirangkum bersama.")
-    with st.form("form_terpadu"):
-        st.header("1. Kualitas Air")
-        air_data = form_air("terpadu_air")
-        st.divider(); st.header("2. Audit Perusahaan")
-        audit_data = form_audit("terpadu_audit")
-        st.divider(); st.header("3. Kualitas Udara")
-        udara_data = form_udara("terpadu_udara")
-        st.divider(); st.header("4. Kualitas Tanah")
-        tanah_data = form_tanah(air_data["tambang"], "terpadu_tanah")
-        submit = st.form_submit_button("Jalankan pemeriksaan terpadu", use_container_width=True, type="primary")
-    if submit:
+    if submitted:
         try:
-            air = hitung_air(air_data)
-            audit = hitung_audit(audit_data)
-            udara = hitung_udara(udara_data)
-            tanah = hitung_tanah(tanah_data)
-            air_tidak_layak = (not air["awal_saja"] and air["kategori"].startswith("AIR TIDAK LAYAK GUNA"))
-            pencemaran_berat = tanah["kategori"] == "Tercemar Berat" or udara["kategori"] == "Berbahaya" or air_tidak_layak
-            kategori_pencemaran = "Pelanggaran Berat" if pencemaran_berat else "Pelanggaran Ringan"
-            pasal = tentukan_pasal(audit, kategori_pencemaran)
-            st.session_state["hasil_terpadu"] = {"air": air, "audit": audit, "udara": udara, "tanah": tanah,
-                                                   "kategori_pencemaran": kategori_pencemaran, "pasal": pasal}
-        except (ValueError, KeyError) as e:
+            fungsi = {"air":hitung_air,"udara":hitung_udara,"tanah":hitung_tanah,"audit":hitung_audit}[modul]
+            st.session_state.hasil = fungsi(d)
+        except ValueError as e:
             st.error(str(e))
 
-    if st.session_state.get("hasil_terpadu"):
-        r = st.session_state["hasil_terpadu"]
-        st.divider(); st.header("Laporan Hasil Pemeriksaan Terpadu")
-        if r["kategori_pencemaran"] == "Pelanggaran Berat": st.error("Status lingkungan: PELANGGARAN BERAT")
-        else: st.success("Status lingkungan: PELANGGARAN RINGAN berdasarkan kriteria program")
-        with st.expander("Hasil kualitas air", expanded=True): tampilkan_air(r["air"])
-        with st.expander("Hasil audit perusahaan", expanded=True):
-            tampilkan_audit(r["audit"])
-            if r["pasal"]:
-                st.markdown("**Indikasi pasal yang perlu ditelaah:**")
-                for nama, uraian in r["pasal"]: st.markdown(f"- **{nama}:** {uraian}")
-            else: st.write("Tidak ada indikasi pasal berdasarkan jawaban audit yang dimasukkan.")
-        with st.expander("Hasil kualitas udara", expanded=True): tampilkan_udara(r["udara"])
-        with st.expander("Hasil kualitas tanah", expanded=True): tampilkan_tanah(r["tanah"])
-        st.caption("Catatan: kategori pelanggaran berat mengikuti logika program sumber, yaitu air tidak layak guna, udara berbahaya, atau tanah tercemar berat. Jika pengamatan air hanya visual, data tersebut belum cukup untuk menyimpulkan kelayakan laboratorium.")
+    if st.session_state.hasil is not None:
+        r=st.session_state.hasil
+        st.divider()
+        st.subheader("Hasil Evaluasi JERAT")
+        if modul == "air" and r.get("awal_saja"):
+            st.info(r["awal"] + " — Jenis tambang: " + r["jenis"] + ". Pengamatan visual belum menggantikan pengujian laboratorium.")
+        elif modul == "air":
+            st.metric("Indeks Kelayakan Air (IKA)", f"{r['ika']} / 100")
+            st.success(r["kategori"] if r["kelas"] in ("ok","blue") else r["kategori"])
+            st.dataframe([{ "Parameter":"pH", "Nilai":r["ph"], "Status":r["status_ph"]},{"Parameter":"Kekeruhan (NTU)","Nilai":r["ntu"],"Status":r["status_ntu"]},{"Parameter":"Warna (TCU)","Nilai":r["tcu"],"Status":r["status_tcu"]}] + [{"Parameter":z["nama"],"Nilai":z["kons"],"Status":"Layak guna" if z["layak"] else "Melebihi batas"} for z in r["zat"]] + [{"Parameter":"TDS","Nilai":r["tds"],"Status":r["status_tds"]}],use_container_width=True)
+        elif modul == "udara":
+            st.metric("Indeks Standar Pencemar Udara",r["total"])
+            st.info("Kategori: "+r["kategori"]+" · Parameter dengan skor tertinggi: "+r["kritis"]["nama"])
+            st.dataframe(r["parameter"],use_container_width=True)
+        elif modul == "tanah":
+            st.metric("Indeks Pencemaran Nemerow (Pn)",f"{r['pn']:.2f}")
+            st.info("Kategori: "+r["kategori"])
+            st.dataframe([{ "Parameter":x[0],"Nilai":x[1],"Skor":x[2]} for x in r["tambahan"]] + [{"Parameter":"pH tanah","Nilai":r["pht"],"Skor":"—"},{"Parameter":"DHL","Nilai":r["ec"],"Skor":"—"},{"Parameter":"C-Organik","Nilai":r["corg"],"Skor":"—"},{"Parameter":"KTK","Nilai":r["ktk"],"Skor":"—"},{"Parameter":"Pb","Nilai":r["pb"],"Skor":"—"}],use_container_width=True)
+        else:
+            c1,c2=st.columns(2)
+            c1.metric("Denda minimum",f"Rp {r['dmin']:,.2f} miliar")
+            c2.metric("Denda maksimum",f"Rp {r['dmax']:,.2f} miliar")
+            c1,c2=st.columns(2)
+            c1.metric("Pidana minimum",f"{r['pmin']} tahun")
+            c2.metric("Pidana maksimum",f"{r['pmaks']} tahun")
+            st.caption("Angka merupakan akumulasi berdasarkan aturan perhitungan yang dimasukkan ke program, bukan penetapan sanksi hukum resmi.")
 
-elif menu == "Kualitas Air":
-    with st.form("form_air_individu"):
-        data = form_air("ind_air")
-        submit = st.form_submit_button("Hitung IKA", use_container_width=True, type="primary")
-    if submit:
-        try: st.session_state["hasil_air"] = hitung_air(data)
-        except ValueError as e: st.error(str(e))
-    if st.session_state.get("hasil_air"): tampilkan_air(st.session_state["hasil_air"])
-
-elif menu == "Kualitas Udara":
-    with st.form("form_udara_individu"):
-        data = form_udara("ind_udara")
-        submit = st.form_submit_button("Hitung skor ISPU", use_container_width=True, type="primary")
-    if submit:
-        try: st.session_state["hasil_udara"] = hitung_udara(data)
-        except ValueError as e: st.error(str(e))
-    if st.session_state.get("hasil_udara"): tampilkan_udara(st.session_state["hasil_udara"])
-
-elif menu == "Kualitas Tanah":
-    with st.form("form_tanah_individu"):
-        tambang = st.selectbox("Jenis tambang", ["Nikel", "Batu Bara"], key="ind_tanah_tambang")
-        data = form_tanah(tambang, "ind_tanah")
-        submit = st.form_submit_button("Hitung indeks Pn", use_container_width=True, type="primary")
-    if submit:
-        try: st.session_state["hasil_tanah"] = hitung_tanah(data)
-        except ValueError as e: st.error(str(e))
-    if st.session_state.get("hasil_tanah"): tampilkan_tanah(st.session_state["hasil_tanah"])
-
-else:
-    with st.form("form_audit_individu"):
-        data = form_audit("ind_audit")
-        submit = st.form_submit_button("Hitung hasil audit", use_container_width=True, type="primary")
-    if submit:
-        try: st.session_state["hasil_audit"] = hitung_audit(data)
-        except ValueError as e: st.error(str(e))
-    if st.session_state.get("hasil_audit"):
-        hasil = st.session_state["hasil_audit"]
-        tampilkan_audit(hasil)
-        st.markdown("**Pasal berdasarkan data audit saja:**")
-        for nama, uraian in tentukan_pasal(hasil, "Pelanggaran Ringan"):
-            st.markdown(f"- **{nama}:** {uraian}")
+    if st.button("← Kembali ke menu utama"):
+        st.session_state.modul = ""
+        st.session_state.hasil = None
+        st.rerun()
 
 st.divider()
-st.caption("KAU NEKAT KAMI JERAT · JERAT | Sistem simulasi evaluasi pertambangan berbasis parameter yang dimasukkan pengguna.")
+st.caption("KAU NEKAT KAMI JERAT · JERAT | Hasil merupakan simulasi berdasarkan parameter dan aturan yang dimasukkan ke aplikasi.")
