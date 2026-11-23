@@ -277,7 +277,39 @@ def hitung_audit(d):
     return {
         "sum": "Audit selesai", "dmin": dmin, "dmax": dmax,
         "pmin": pmin, "pmaks": pmaks,
+        "izin": izin, "hektare": hektare, "korban": korban,
+        "limbah": limbah, "suap": suap,
     }
+
+
+def tentukan_pasal(audit, kategori_pencemaran):
+    """Pemetaan pasal mengikuti daftar pada program Python utama."""
+    pasal = []
+    pasal.append(
+        "Pasal 158 dan 161A UU Minerba (Izin Usaha Pertambangan tanpa izin)"
+        if audit["izin"] == "tidak" else "Tidak ada"
+    )
+    pasal.append(
+        "Pasal 89 ayat (1) huruf a jo. Pasal 17 ayat (1) huruf b UU No. 18 Tahun 2013 (Perambahan Kawasan Hutan)"
+        if audit["hektare"] > 1 else "Tidak ada"
+    )
+    pasal.append(
+        "UU Pertambangan Minerba (UU No. 4 Tahun 2009 jo. UU No. 3 Tahun 2020) - Terkait Kecelakaan Kerja"
+        if audit["korban"] >= 1 else "Tidak ada"
+    )
+    pasal.append(
+        "Pasal 98 ayat (1) / Pasal 99 ayat (1) UU No. 32 Tahun 2009 (Pencemaran Lingkungan)"
+        if kategori_pencemaran == "Pelanggaran Berat" else "Tidak ada"
+    )
+    pasal.append(
+        "Pasal 102 - 103 UU No. 32 Tahun 2009 (Pengelolaan Limbah tanpa izin)"
+        if audit["limbah"] == "ya" else "Tidak ada"
+    )
+    pasal.append(
+        "Pasal 5 ayat (1) UU Tipikor (Praktik Suap dan Laporan Keuangan Fiktif)"
+        if audit["suap"] == "ya" else "Tidak ada"
+    )
+    return pasal
 
 
 st.set_page_config(page_title="JERAT | Audit Lingkungan", page_icon="⚖️", layout="wide")
@@ -287,6 +319,8 @@ if "modul" not in st.session_state:
     st.session_state.modul = ""
 if "hasil" not in st.session_state:
     st.session_state.hasil = None
+if "hasil_per_modul" not in st.session_state:
+    st.session_state.hasil_per_modul = {}
 
 st.caption("JARINGAN EVALUASI REGULASI DAN ATURAN TAMBANG")
 st.title("⚖️ KAU NEKAT KAMI JERAT")
@@ -370,6 +404,7 @@ else:
         try:
             fungsi = {"air":hitung_air,"udara":hitung_udara,"tanah":hitung_tanah,"audit":hitung_audit}[modul]
             st.session_state.hasil = fungsi(d)
+            st.session_state.hasil_per_modul[modul] = st.session_state.hasil
         except ValueError as e:
             st.error(str(e))
 
@@ -399,6 +434,39 @@ else:
             c1.metric("Pidana minimum",f"{r['pmin']} tahun")
             c2.metric("Pidana maksimum",f"{r['pmaks']} tahun")
             st.caption("Angka merupakan akumulasi berdasarkan aturan perhitungan yang dimasukkan ke program, bukan penetapan sanksi hukum resmi.")
+
+            # Status pencemaran dihitung dari hasil tiga pemeriksaan lingkungan
+            # yang telah disimpan, tanpa mengubah halaman awal empat pilihan.
+            tersimpan = st.session_state.hasil_per_modul
+            air = tersimpan.get("air")
+            udara = tersimpan.get("udara")
+            tanah = tersimpan.get("tanah")
+            if air and udara and tanah and not air.get("awal_saja"):
+                air_tidak_layak = str(air.get("kategori", "")).startswith("AIR TIDAK LAYAK GUNA")
+                pencemaran_berat = (
+                    tanah.get("kategori") == "Tercemar Berat"
+                    or udara.get("kategori") == "Berbahaya"
+                    or air_tidak_layak
+                )
+                kategori_pencemaran = "Pelanggaran Berat" if pencemaran_berat else "Pelanggaran Ringan"
+                st.subheader("Identifikasi kategori pencemaran")
+                st.write("**" + kategori_pencemaran + "**")
+                pasal = tentukan_pasal(r, kategori_pencemaran)
+                st.subheader("Pemetaan pasal berdasarkan hasil pemeriksaan")
+                for i, uraian in enumerate(pasal, start=1):
+                    st.write(f"{i}. {uraian}")
+            else:
+                st.info(
+                    "Pemetaan pasal pencemaran lingkungan belum dapat ditentukan. "
+                    "Selesaikan pemeriksaan kualitas air (termasuk observasi lanjutan), "
+                    "kualitas udara, dan kualitas tanah terlebih dahulu. "
+                    "Hasil setiap pemeriksaan akan tersimpan ketika kembali ke menu utama."
+                )
+                pasal = tentukan_pasal(r, "Belum dapat ditentukan")
+                st.subheader("Pemetaan pasal audit perusahaan")
+                for i, uraian in enumerate(pasal, start=1):
+                    if i != 4:
+                        st.write(f"{i}. {uraian}")
 
     if st.button("← Kembali ke menu utama"):
         st.session_state.modul = ""
