@@ -474,4 +474,4 @@ else:
         st.rerun()
 
 st.divider()
-st.caption("KAU NEKAT KAMI JERAT · JERAT | Hasil merupakan simulasi berdasarkan parameter dan aturan yang dimasukkan ke aplikasi.")
+st.caption("KAU NEKAT KAMI JERAT · JERAT")
